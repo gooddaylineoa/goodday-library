@@ -661,3 +661,129 @@ document.getElementById('btn-cancel-lib-booking').onclick = async () => {
     showToast('เกิดข้อผิดพลาด กรุณาลองใหม่', 'error');
   }
 };
+
+// ================= เสนอแนะหนังสือ =================
+
+document.getElementById('btn-suggest-book').onclick = () => {
+  ['sb-title', 'sb-author', 'sb-detail'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('sb-image-preview').classList.add('hidden');
+  document.getElementById('sb-image-placeholder').classList.remove('hidden');
+  selectedSuggestionImageFile = null;
+  showView('suggest-book-view');
+};
+document.getElementById('btn-back-suggest-book').onclick = () => showView('home-view');
+
+let selectedSuggestionImageFile = null;
+
+document.getElementById('sb-image-preview-box').onclick = () => document.getElementById('sb-image-input').click();
+document.getElementById('sb-image-input').onchange = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  selectedSuggestionImageFile = file;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    document.getElementById('sb-image-preview').src = ev.target.result;
+    document.getElementById('sb-image-preview').classList.remove('hidden');
+    document.getElementById('sb-image-placeholder').classList.add('hidden');
+  };
+  reader.readAsDataURL(file);
+};
+
+document.getElementById('btn-submit-suggestion').onclick = async () => {
+  const title = document.getElementById('sb-title').value.trim();
+  const author = document.getElementById('sb-author').value.trim();
+  const detail = document.getElementById('sb-detail').value.trim();
+
+  if (!title) { showToast('กรุณากรอกชื่อหนังสือ', 'error'); return; }
+
+  showLoading('กำลังส่งคำแนะนำ...');
+  try {
+    let imageUrl = '';
+    if (selectedSuggestionImageFile) {
+      const formData = new FormData();
+      formData.append('file', selectedSuggestionImageFile);
+      formData.append('upload_preset', 'goodday_unsigned');
+      const uploadRes = await fetch('https://api.cloudinary.com/v1_1/l1htg1ks/image/upload', { method: 'POST', body: formData });
+      const uploadData = await uploadRes.json();
+      imageUrl = uploadData.secure_url || '';
+    }
+
+    await addDoc(collection(db, 'libraryBookSuggestions'), {
+      uid: currentUid,
+      suggesterName: currentUserData.name || 'สมาชิก',
+      branchId: currentUserData.libraryMember.branchId,
+      title,
+      author,
+      imageUrl,
+      detail,
+      status: 'pending',
+      createdAt: new Date()
+    });
+
+    hideLoading();
+    showToast('ส่งคำแนะนำสำเร็จ ขอบคุณครับ!', 'success');
+    showView('home-view');
+  } catch (err) {
+    hideLoading();
+    showToast('เกิดข้อผิดพลาด: ' + err.message, 'error');
+  }
+};
+
+// ================= ชุมชนสร้างสรรค์ (แผนที่) =================
+
+let communityMapInstance = null;
+
+document.getElementById('btn-creative-community').onclick = () => {
+  showView('creative-community-view');
+  openCommunityMap();
+};
+document.getElementById('btn-back-creative-community').onclick = () => showView('home-view');
+
+async function openCommunityMap() {
+  const branchId = currentUserData.libraryMember.branchId;
+
+  // ดึงหมุดของสาขานี้จาก Firestore
+  const spotsSnap = await getDocs(collection(db, 'libraryBranches', branchId, 'communitySpots'));
+  const spots = [];
+  spotsSnap.forEach(d => spots.push({ id: d.id, ...d.data() }));
+
+  // ขอสิทธิ์ตำแหน่งผู้ใช้ (ถ้าปฏิเสธ ใช้ตำแหน่งเฉลี่ยของหมุดแทน)
+  let centerLat = 13.7563, centerLng = 100.5018; // ค่า default กรุงเทพฯ เผื่อไม่มีข้อมูลอะไรเลย
+  if (spots.length > 0) {
+    centerLat = spots[0].lat;
+    centerLng = spots[0].lng;
+  }
+
+  try {
+    const pos = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+    });
+    centerLat = pos.coords.latitude;
+    centerLng = pos.coords.longitude;
+  } catch (err) {
+    console.log('ไม่ได้รับสิทธิ์ตำแหน่ง ใช้ตำแหน่งเริ่มต้นแทน');
+  }
+
+  // ถ้าเคยสร้างแผนที่ไว้แล้ว ให้ลบทิ้งก่อนสร้างใหม่ (กันซ้อนตอนกลับเข้าหน้านี้ซ้ำ)
+  if (communityMapInstance) {
+    communityMapInstance.remove();
+    communityMapInstance = null;
+  }
+
+  communityMapInstance = L.map('community-map').setView([centerLat, centerLng], 14);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(communityMapInstance);
+
+  // หมุดตำแหน่งผู้ใช้ (สีน้ำเงิน)
+  L.circleMarker([centerLat, centerLng], { radius: 8, fillColor: '#3b82f6', color: '#fff', weight: 2, fillOpacity: 1 })
+    .addTo(communityMapInstance)
+    .bindPopup('ตำแหน่งของคุณ');
+
+  // หมุดสถานที่สำคัญ (สีชมพู ตามธีมระบบ)
+  spots.forEach(spot => {
+    L.marker([spot.lat, spot.lng])
+      .addTo(communityMapInstance)
+      .bindPopup(`<b>${spot.name}</b><br>${spot.description || ''}`);
+  });
+}
