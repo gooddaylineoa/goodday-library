@@ -321,7 +321,7 @@
         <button id="btn-cancel-lib-booking" class="w-full bg-red-50 text-red-600 py-4 rounded-2xl font-black text-lg">ยกเลิกการจอง</button>
       </div>
     </div>
-    
+
     <!-- เสนอแนะหนังสือ -->
     <div id="suggest-book-view" class="page-section bg-white min-h-screen pb-10">
       <div class="theme-pink text-white p-4 flex items-center gap-3 sticky top-0 z-40">
@@ -362,6 +362,92 @@
       </div>
       <div id="community-map" style="height: calc(100vh - 68px); width: 100%;"></div>
     </div>
+    
+    <!-- จองพื้นที่ -->
+    <div id="space-booking-view" class="page-section bg-gray-50 min-h-screen pb-24">
+      <div class="theme-pink text-white p-4 sticky top-0 z-40">
+        <h2 class="text-xl font-black">จองพื้นที่</h2>
+      </div>
+      <div class="flex bg-white border-b border-gray-200 sticky top-[60px] z-30">
+        <button id="space-tab-book" class="flex-1 py-3 text-lg font-black theme-text border-b-2 border-pink-500">จองพื้นที่</button>
+        <button id="space-tab-history" class="flex-1 py-3 text-lg font-black text-gray-400 border-b-2 border-transparent">ประวัติการจอง</button>
+      </div>
+      <div class="p-4">
+        <div id="space-list" class="space-y-3"></div>
+      </div>
+
+      <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-gray-200 flex z-50">
+        <button id="space-btn-tab-home" class="flex-1 py-3 flex flex-col items-center gap-1 text-gray-400">
+          <i class="fa-solid fa-house text-xl"></i><span class="text-sm font-bold">หน้าหลัก</span>
+        </button>
+        <button id="space-btn-tab-space" class="flex-1 py-3 flex flex-col items-center gap-1 theme-text">
+          <i class="fa-solid fa-door-open text-xl"></i><span class="text-sm font-bold">จองพื้นที่</span>
+        </button>
+        <button id="space-btn-tab-news" class="flex-1 py-3 flex flex-col items-center gap-1 text-gray-400">
+          <i class="fa-solid fa-newspaper text-xl"></i><span class="text-sm font-bold">ข่าวสาร</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ฟอร์มจองพื้นที่ -->
+    <div id="space-book-form-view" class="page-section bg-white min-h-screen pb-10">
+      <div class="theme-pink text-white p-4 flex items-center gap-3 sticky top-0 z-40">
+        <button id="btn-back-space-form" class="w-11 h-11 bg-white/20 rounded-full flex items-center justify-center text-lg"><i class="fa-solid fa-arrow-left"></i></button>
+        <h2 id="sf-space-name" class="text-xl font-bold">-</h2>
+      </div>
+      <div class="p-4">
+        <label class="text-base font-bold text-gray-700 block mb-1">วันที่จะใช้งาน</label>
+        <input type="date" id="sf-date" class="form-input mb-3">
+
+        <div class="grid grid-cols-2 gap-2 mb-4">
+          <div>
+            <label class="text-base font-bold text-gray-700 block mb-1">เวลาเริ่ม</label>
+            <input type="time" id="sf-start-time" class="form-input">
+          </div>
+          <div>
+            <label class="text-base font-bold text-gray-700 block mb-1">เวลาสิ้นสุด</label>
+            <input type="time" id="sf-end-time" class="form-input">
+          </div>
+        </div>
+
+        <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4">
+          <p class="text-base font-bold text-amber-700 mb-2"><i class="fa-solid fa-circle-info mr-1"></i>กฎการใช้งานพื้นที่</p>
+          <ul class="text-sm text-amber-700 space-y-1 list-disc pl-5">
+            <li>1 พื้นที่ จองได้เพียง 1 ครั้งต่อวันเท่านั้น (คนแรกที่จองได้สิทธิ์ใช้งาน)</li>
+            <li>กรุณามาใช้งานตรงตามเวลาที่จอง หากไม่มาภายใน 30 นาที ถือว่าสละสิทธิ์</li>
+            <li>รักษาความสะอาดและความเป็นระเบียบของพื้นที่</li>
+            <li>งดใช้เสียงดังรบกวนผู้อื่นภายในห้องสมุด</li>
+          </ul>
+        </div>
+
+        <button id="btn-confirm-space-booking" class="w-full theme-pink text-white py-4 rounded-2xl font-black text-lg">ยืนยันการจอง</button>
+      </div>
+    </div>
+
+    <!-- รายละเอียดการจองพื้นที่ (QR) -->
+    <div id="space-booking-detail-view" class="page-section bg-white min-h-screen pb-10 text-center">
+      <div class="theme-pink text-white p-4 flex items-center gap-3 sticky top-0 z-40">
+        <button id="btn-back-space-detail" class="w-11 h-11 bg-white/20 rounded-full flex items-center justify-center text-lg"><i class="fa-solid fa-arrow-left"></i></button>
+        <h2 class="text-xl font-bold">รายละเอียดการจอง</h2>
+      </div>
+      <div class="p-4">
+        <span id="sbd-status-badge" class="inline-block text-base font-bold px-3 py-1.5 rounded-full mb-4"></span>
+
+        <div class="bg-gray-50 rounded-2xl p-4 mb-4 text-left space-y-2">
+          <div><p class="text-sm text-gray-400">รหัสการจอง</p><p id="sbd-code" class="font-black text-purple-600 text-lg"></p></div>
+          <div><p class="text-sm text-gray-400">ชื่อผู้จอง</p><p id="sbd-name" class="font-bold text-gray-800"></p></div>
+          <div><p class="text-sm text-gray-400">พื้นที่</p><p id="sbd-space" class="font-bold text-gray-800"></p></div>
+          <div><p class="text-sm text-gray-400">วันที่ / เวลา</p><p id="sbd-datetime" class="font-bold text-gray-800"></p></div>
+        </div>
+
+        <div id="sbd-map" style="height: 180px; width: 100%; border-radius: 1rem; overflow:hidden;" class="mb-4"></div>
+
+        <img id="sbd-qr-img" src="" class="w-52 h-52 mx-auto mb-6">
+
+        <button id="btn-cancel-space-booking" class="w-full bg-red-50 text-red-600 py-4 rounded-2xl font-black text-lg">ยกเลิกการจอง</button>
+      </div>
+    </div>
+
   </div>
   <script type="module" src="/src/main.js"></script>
 </body>

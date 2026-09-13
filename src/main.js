@@ -85,7 +85,10 @@ document.getElementById('btn-lib-activities').onclick = () => showToast('กิ�
 document.getElementById('btn-suggest-book').onclick = () => showToast('เสนอแนะหนังสือ จะทำในเฟส 5', 'info');
 document.getElementById('btn-creative-community').onclick = () => showToast('ชุมชนสร้างสรรค์ จะทำในเฟส 5', 'info');
 document.getElementById('btn-lib-calendar').onclick = () => showToast('ปฏิทินกิจกรรม จะทำในเฟส 4', 'info');
-document.getElementById('tab-space-booking').onclick = () => showToast('จองพื้นที่ จะทำในเฟส 6', 'info');
+document.getElementById('tab-space-booking').onclick = () => {
+  showView('space-booking-view');
+  loadSpaceBookingTab();
+};
 document.getElementById('tab-news').onclick = () => showToast('ข่าวสาร จะทำในเฟส 7', 'info');
 
 // ================= ค้นหาหนังสือ =================
@@ -787,3 +790,196 @@ async function openCommunityMap() {
       .bindPopup(`<b>${spot.name}</b><br>${spot.description || ''}`);
   });
 }
+
+// ================= จองพื้นที่ =================
+
+let branchSpacesData = [];
+let mySpaceBookings = [];
+let currentSpaceTab = 'book';
+let selectedSpace = null;
+let currentSpaceBookingId = null;
+
+document.getElementById('space-btn-tab-home').onclick = () => showView('home-view');
+document.getElementById('space-btn-tab-space').onclick = () => showView('space-booking-view');
+document.getElementById('space-btn-tab-news').onclick = () => showToast('ข่าวสาร จะทำในเฟส 7', 'info');
+
+function loadSpaceBookingTab() {
+  currentSpaceTab = 'book';
+  document.getElementById('space-tab-book').className = 'flex-1 py-3 text-lg font-black theme-text border-b-2 border-pink-500';
+  document.getElementById('space-tab-history').className = 'flex-1 py-3 text-lg font-black text-gray-400 border-b-2 border-transparent';
+  loadBranchSpaces();
+}
+
+async function loadBranchSpaces() {
+  const container = document.getElementById('space-list');
+  container.innerHTML = '<p class="text-center text-gray-400 text-lg py-8">กำลังโหลด...</p>';
+
+  const branchId = currentUserData.libraryMember.branchId;
+  const branchDoc = await getDoc(doc(db, 'libraryBranches', branchId));
+  branchSpacesData = branchDoc.exists() ? (branchDoc.data().coWorkingSpaces || []) : [];
+
+  if (branchSpacesData.length === 0) {
+    container.innerHTML = '<p class="text-center text-gray-400 text-lg py-8">สาขานี้ยังไม่มีพื้นที่ให้จอง</p>';
+    return;
+  }
+
+  container.innerHTML = branchSpacesData.map(s => `
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-3 cursor-pointer" onclick="openSpaceBookForm('${s.spaceId}')">
+      <div class="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center text-2xl shrink-0"><i class="fa-solid fa-door-open"></i></div>
+      <div class="flex-1">
+        <h4 class="font-black text-gray-800">${s.name}</h4>
+        <p class="text-sm text-gray-400">รองรับ ${s.capacity || '-'} คน</p>
+      </div>
+      <i class="fa-solid fa-chevron-right text-gray-300"></i>
+    </div>
+  `).join('');
+}
+
+document.getElementById('space-tab-book').onclick = () => {
+  currentSpaceTab = 'book';
+  document.getElementById('space-tab-book').className = 'flex-1 py-3 text-lg font-black theme-text border-b-2 border-pink-500';
+  document.getElementById('space-tab-history').className = 'flex-1 py-3 text-lg font-black text-gray-400 border-b-2 border-transparent';
+  loadBranchSpaces();
+};
+
+document.getElementById('space-tab-history').onclick = async () => {
+  currentSpaceTab = 'history';
+  document.getElementById('space-tab-history').className = 'flex-1 py-3 text-lg font-black theme-text border-b-2 border-pink-500';
+  document.getElementById('space-tab-book').className = 'flex-1 py-3 text-lg font-black text-gray-400 border-b-2 border-transparent';
+
+  const container = document.getElementById('space-list');
+  container.innerHTML = '<p class="text-center text-gray-400 text-lg py-8">กำลังโหลด...</p>';
+
+  const q = query(collection(db, 'librarySpaceBookings'), where('uid', '==', currentUid));
+  const snap = await getDocs(q);
+  mySpaceBookings = [];
+  snap.forEach(d => mySpaceBookings.push({ id: d.id, ...d.data() }));
+
+  const confirmed = mySpaceBookings
+    .filter(b => b.status === 'confirmed')
+    .sort((a, b) => (b.bookedAt?.seconds || 0) - (a.bookedAt?.seconds || 0));
+
+  if (confirmed.length === 0) {
+    container.innerHTML = '<p class="text-center text-gray-400 text-lg py-8">ยังไม่มีประวัติการจอง</p>';
+    return;
+  }
+
+  container.innerHTML = confirmed.map(b => `
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 cursor-pointer" onclick="openSpaceBookingDetail('${b.id}')">
+      <p class="font-black text-gray-800">${b.spaceName}</p>
+      <p class="text-sm text-gray-400">${b.date} · ${b.startTime}-${b.endTime}</p>
+      <p class="text-sm text-purple-600 font-bold mt-1">${b.bookingCode}</p>
+    </div>
+  `).join('');
+};
+
+function openSpaceBookForm(spaceId) {
+  selectedSpace = branchSpacesData.find(s => s.spaceId === spaceId);
+  if (!selectedSpace) return;
+
+  document.getElementById('sf-space-name').innerText = selectedSpace.name;
+
+  const today = new Date();
+  document.getElementById('sf-date').min = today.toISOString().split('T')[0];
+  document.getElementById('sf-date').value = today.toISOString().split('T')[0];
+  document.getElementById('sf-start-time').value = '09:00';
+  document.getElementById('sf-end-time').value = '11:00';
+
+  showView('space-book-form-view');
+}
+window.openSpaceBookForm = openSpaceBookForm;
+
+document.getElementById('btn-back-space-form').onclick = () => showView('space-booking-view');
+
+document.getElementById('btn-confirm-space-booking').onclick = async () => {
+  const date = document.getElementById('sf-date').value;
+  const startTime = document.getElementById('sf-start-time').value;
+  const endTime = document.getElementById('sf-end-time').value;
+
+  if (!date || !startTime || !endTime) { showToast('กรุณากรอกข้อมูลให้ครบ', 'error'); return; }
+  if (endTime <= startTime) { showToast('เวลาสิ้นสุดต้องอยู่หลังเวลาเริ่ม', 'error'); return; }
+
+  showLoading('กำลังทำการจอง...');
+  try {
+    const res = await fetch('/api/book-space', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        uid: currentUid,
+        branchId: currentUserData.libraryMember.branchId,
+        spaceId: selectedSpace.spaceId,
+        spaceName: selectedSpace.name,
+        date, startTime, endTime
+      })
+    });
+    const data = await res.json();
+    hideLoading();
+
+    if (!res.ok) { showToast(data.error || 'จองไม่สำเร็จ', 'error'); return; }
+
+    showToast('จองสำเร็จ!', 'success');
+    showView('space-booking-view');
+    document.getElementById('space-tab-history').click();
+  } catch (err) {
+    hideLoading();
+    showToast('เกิดข้อผิดพลาด กรุณาลองใหม่', 'error');
+  }
+};
+
+let spaceDetailMapInstance = null;
+
+async function openSpaceBookingDetail(bookingId) {
+  const b = mySpaceBookings.find(x => x.id === bookingId);
+  if (!b) return;
+  currentSpaceBookingId = bookingId;
+
+  document.getElementById('sbd-status-badge').innerText = b.status === 'confirmed' ? 'ยืนยันแล้ว' : 'ยกเลิกแล้ว';
+  document.getElementById('sbd-status-badge').className = `inline-block text-base font-bold px-3 py-1.5 rounded-full mb-4 ${b.status === 'confirmed' ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-400'}`;
+  document.getElementById('sbd-code').innerText = b.bookingCode;
+  document.getElementById('sbd-name').innerText = b.borrowerName;
+  document.getElementById('sbd-space').innerText = b.spaceName;
+  document.getElementById('sbd-datetime').innerText = `${b.date} · ${b.startTime}-${b.endTime}`;
+  document.getElementById('sbd-qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(b.bookingCode)}`;
+  document.getElementById('btn-cancel-space-booking').classList.toggle('hidden', b.status !== 'confirmed');
+
+  showView('space-booking-detail-view');
+
+  // แสดงแผนที่ตำแหน่งสาขา
+  const branchDoc = await getDoc(doc(db, 'libraryBranches', b.branchId));
+  if (branchDoc.exists()) {
+    const branch = branchDoc.data();
+    if (branch.lat && branch.lng) {
+      if (spaceDetailMapInstance) { spaceDetailMapInstance.remove(); spaceDetailMapInstance = null; }
+      spaceDetailMapInstance = L.map('sbd-map').setView([branch.lat, branch.lng], 15);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(spaceDetailMapInstance);
+      L.marker([branch.lat, branch.lng]).addTo(spaceDetailMapInstance).bindPopup(branch.branchName);
+    }
+  }
+}
+window.openSpaceBookingDetail = openSpaceBookingDetail;
+
+document.getElementById('btn-back-space-detail').onclick = () => showView('space-booking-view');
+
+document.getElementById('btn-cancel-space-booking').onclick = async () => {
+  if (!confirm('ยืนยันยกเลิกการจองนี้?')) return;
+
+  showLoading('กำลังยกเลิก...');
+  try {
+    const res = await fetch('/api/cancel-space-booking', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid: currentUid, bookingId: currentSpaceBookingId })
+    });
+    const data = await res.json();
+    hideLoading();
+
+    if (!res.ok) { showToast(data.error || 'ยกเลิกไม่สำเร็จ', 'error'); return; }
+
+    showToast('ยกเลิกการจองสำเร็จ', 'success');
+    showView('space-booking-view');
+    document.getElementById('space-tab-history').click();
+  } catch (err) {
+    hideLoading();
+    showToast('เกิดข้อผิดพลาด กรุณาลองใหม่', 'error');
+  }
+};
