@@ -471,3 +471,193 @@ document.getElementById('btn-back-librarian-scan').onclick = () => {
   stopScanning();
   showView('home-view');
 };
+
+// ================= กิจกรรมห้องสมุด =================
+
+let allLibEventsData = [];
+let myLibBookings = [];
+let currentLibEventTab = 'upcoming';
+let selectedLibSlotId = null;
+
+document.getElementById('btn-lib-activities').onclick = () => {
+  showView('lib-events-view');
+  loadLibEvents();
+};
+document.getElementById('btn-lib-calendar').onclick = () => {
+  showView('lib-events-view');
+  loadLibEvents();
+};
+document.getElementById('btn-back-lib-events').onclick = () => showView('home-view');
+
+async function loadLibEvents() {
+  const branchId = currentUserData.libraryMember.branchId;
+  const q = query(collection(db, 'libraryEvents'), where('branchId', '==', branchId));
+  const snap = await getDocs(q);
+  allLibEventsData = [];
+  snap.forEach(d => allLibEventsData.push({ id: d.id, ...d.data() }));
+  renderLibEventsList();
+}
+
+document.getElementById('lib-event-tab-upcoming').onclick = () => {
+  currentLibEventTab = 'upcoming';
+  document.getElementById('lib-event-tab-upcoming').className = 'flex-1 py-3 text-lg font-black theme-text border-b-2 border-pink-500';
+  document.getElementById('lib-event-tab-history').className = 'flex-1 py-3 text-lg font-black text-gray-400 border-b-2 border-transparent';
+  renderLibEventsList();
+};
+document.getElementById('lib-event-tab-history').onclick = async () => {
+  currentLibEventTab = 'history';
+  document.getElementById('lib-event-tab-history').className = 'flex-1 py-3 text-lg font-black theme-text border-b-2 border-pink-500';
+  document.getElementById('lib-event-tab-upcoming').className = 'flex-1 py-3 text-lg font-black text-gray-400 border-b-2 border-transparent';
+
+  const snap = await getDocs(collection(db, 'users', currentUid, 'libraryEventBookings'));
+  myLibBookings = [];
+  snap.forEach(d => myLibBookings.push({ id: d.id, ...d.data() }));
+  renderLibEventsList();
+};
+
+function renderLibEventsList() {
+  const container = document.getElementById('lib-events-list');
+
+  if (currentLibEventTab === 'upcoming') {
+    if (allLibEventsData.length === 0) {
+      container.innerHTML = '<p class="text-center text-gray-400 text-lg py-8">ยังไม่มีกิจกรรม</p>';
+      return;
+    }
+    container.innerHTML = allLibEventsData.map(e => `
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden cursor-pointer" onclick="openLibEventDetail('${e.id}')">
+        <img src="${e.image || ''}" class="w-full h-32 object-cover bg-gray-100">
+        <div class="p-3">
+          <h4 class="font-black text-gray-800">${e.name}</h4>
+          <p class="text-sm text-gray-400 truncate">${e.description || ''}</p>
+        </div>
+      </div>`).join('');
+  } else {
+    const confirmed = myLibBookings.filter(b => b.status === 'confirmed');
+    if (confirmed.length === 0) {
+      container.innerHTML = '<p class="text-center text-gray-400 text-lg py-8">ยังไม่มีประวัติการจอง</p>';
+      return;
+    }
+    container.innerHTML = confirmed.map(b => `
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex gap-3 cursor-pointer" onclick="openLibBookingDetail('${b.id}')">
+        <img src="${b.eventImage || ''}" class="w-16 h-16 rounded-xl object-cover bg-gray-100 shrink-0">
+        <div class="flex-1">
+          <h4 class="font-black text-gray-800">${b.eventName}</h4>
+          <p class="text-sm text-gray-400">${b.date} · ${b.startTime}-${b.endTime}</p>
+        </div>
+        <i class="fa-solid fa-chevron-right text-gray-300 self-center"></i>
+      </div>`).join('');
+  }
+}
+
+function openLibEventDetail(eventId) {
+  const e = allLibEventsData.find(x => x.id === eventId);
+  if (!e) return;
+  selectedLibSlotId = null;
+
+  document.getElementById('led-image').src = e.image || '';
+  document.getElementById('led-name').innerText = e.name;
+  document.getElementById('led-description').innerText = e.description || '';
+  document.getElementById('led-location').innerText = e.location || '-';
+
+  document.getElementById('led-slots-list').innerHTML = (e.slots || []).map(s => {
+    const full = (s.bookedSeats || 0) >= s.totalSeats;
+    return `
+      <button class="lib-slot-btn w-full text-left p-3 rounded-xl border-2 ${full ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed' : 'border-gray-200'}"
+        data-slot="${s.slotId}" ${full ? 'disabled' : ''}>
+        <p class="font-bold text-gray-800">${s.date} · ${s.startTime}-${s.endTime}</p>
+        <p class="text-sm text-gray-400">เหลือที่นั่ง ${Math.max(s.totalSeats - (s.bookedSeats || 0), 0)}/${s.totalSeats}</p>
+      </button>`;
+  }).join('');
+
+  document.querySelectorAll('.lib-slot-btn:not([disabled])').forEach(btn => {
+    btn.onclick = () => {
+      selectedLibSlotId = btn.dataset.slot;
+      document.querySelectorAll('.lib-slot-btn').forEach(b => b.classList.remove('border-pink-500', 'bg-pink-50'));
+      btn.classList.add('border-pink-500', 'bg-pink-50');
+      const confirmBtn = document.getElementById('btn-confirm-lib-booking');
+      confirmBtn.disabled = false;
+      confirmBtn.className = 'w-full theme-pink text-white py-4 rounded-2xl font-black text-lg';
+      confirmBtn.innerText = 'ยืนยันการจอง';
+    };
+  });
+
+  document.getElementById('btn-confirm-lib-booking').disabled = true;
+  document.getElementById('btn-confirm-lib-booking').className = 'w-full bg-gray-300 text-white py-4 rounded-2xl font-black text-lg';
+  document.getElementById('btn-confirm-lib-booking').innerText = 'เลือกรอบเวลาก่อน';
+
+  window.currentLibEventId = eventId;
+  showView('lib-event-detail-view');
+}
+window.openLibEventDetail = openLibEventDetail;
+
+document.getElementById('btn-back-lib-event-detail').onclick = () => showView('lib-events-view');
+
+document.getElementById('btn-confirm-lib-booking').onclick = async () => {
+  if (!selectedLibSlotId) return;
+
+  showLoading('กำลังทำการจอง...');
+  try {
+    const res = await fetch('/api/book-library-event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid: currentUid, eventId: window.currentLibEventId, slotId: selectedLibSlotId })
+    });
+    const data = await res.json();
+    hideLoading();
+
+    if (!res.ok) { showToast(data.error || 'จองไม่สำเร็จ', 'error'); return; }
+
+    showToast('จองสำเร็จ!', 'success');
+    document.getElementById('lib-event-tab-history').click();
+    showView('lib-events-view');
+  } catch (err) {
+    hideLoading();
+    showToast('เกิดข้อผิดพลาด กรุณาลองใหม่', 'error');
+  }
+};
+
+let currentLibBookingId = null;
+
+function openLibBookingDetail(bookingId) {
+  const b = myLibBookings.find(x => x.id === bookingId);
+  if (!b) return;
+  currentLibBookingId = bookingId;
+
+  document.getElementById('lbd-status-badge').innerText = b.status === 'confirmed' ? 'ยืนยันแล้ว' : 'ยกเลิกแล้ว';
+  document.getElementById('lbd-status-badge').className = `inline-block text-base font-bold px-3 py-1.5 rounded-full mb-4 ${b.status === 'confirmed' ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-400'}`;
+  document.getElementById('lbd-image').src = b.eventImage || '';
+  document.getElementById('lbd-name').innerText = b.eventName;
+  document.getElementById('lbd-datetime').innerText = `${b.date} · ${b.startTime}-${b.endTime}`;
+  document.getElementById('lbd-qr-img').src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(b.bookingCode)}`;
+  document.getElementById('lbd-code').innerText = b.bookingCode;
+  document.getElementById('btn-cancel-lib-booking').classList.toggle('hidden', b.status !== 'confirmed');
+
+  showView('lib-booking-detail-view');
+}
+window.openLibBookingDetail = openLibBookingDetail;
+
+document.getElementById('btn-back-lib-booking-detail').onclick = () => showView('lib-events-view');
+
+document.getElementById('btn-cancel-lib-booking').onclick = async () => {
+  if (!confirm('ยืนยันยกเลิกการจองนี้?')) return;
+
+  showLoading('กำลังยกเลิก...');
+  try {
+    const res = await fetch('/api/cancel-library-booking', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid: currentUid, bookingId: currentLibBookingId })
+    });
+    const data = await res.json();
+    hideLoading();
+
+    if (!res.ok) { showToast(data.error || 'ยกเลิกไม่สำเร็จ', 'error'); return; }
+
+    showToast('ยกเลิกการจองสำเร็จ', 'success');
+    document.getElementById('lib-event-tab-history').click();
+    showView('lib-events-view');
+  } catch (err) {
+    hideLoading();
+    showToast('เกิดข้อผิดพลาด กรุณาลองใหม่', 'error');
+  }
+};

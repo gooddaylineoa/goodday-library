@@ -268,6 +268,58 @@
       <p id="scan-status-text" class="text-center text-white text-lg font-bold mt-4">กำลังเปิดกล้อง...</p>
     </div>
 
+    <!-- รายการกิจกรรมห้องสมุด -->
+    <div id="lib-events-view" class="page-section bg-gray-50 min-h-screen pb-10">
+      <div class="theme-pink text-white p-4 flex items-center gap-3 sticky top-0 z-40">
+        <button id="btn-back-lib-events" class="w-11 h-11 bg-white/20 rounded-full flex items-center justify-center text-lg"><i class="fa-solid fa-arrow-left"></i></button>
+        <h2 class="text-xl font-bold">กิจกรรมห้องสมุด</h2>
+      </div>
+      <div class="flex bg-white border-b border-gray-200 sticky top-0 z-30">
+        <button id="lib-event-tab-upcoming" class="flex-1 py-3 text-lg font-black theme-text border-b-2 border-pink-500">กิจกรรมทั้งหมด</button>
+        <button id="lib-event-tab-history" class="flex-1 py-3 text-lg font-black text-gray-400 border-b-2 border-transparent">ประวัติการจอง</button>
+      </div>
+      <div class="p-4">
+        <div id="lib-events-list" class="space-y-3"></div>
+      </div>
+    </div>
+
+    <!-- รายละเอียดกิจกรรม -->
+    <div id="lib-event-detail-view" class="page-section bg-white min-h-screen pb-24">
+      <div class="theme-pink text-white p-4 flex items-center gap-3 sticky top-0 z-40">
+        <button id="btn-back-lib-event-detail" class="w-11 h-11 bg-white/20 rounded-full flex items-center justify-center text-lg"><i class="fa-solid fa-arrow-left"></i></button>
+        <h2 class="text-xl font-bold">รายละเอียดกิจกรรม</h2>
+      </div>
+      <img id="led-image" src="" class="w-full h-48 object-cover bg-gray-100">
+      <div class="p-4">
+        <h2 id="led-name" class="text-xl font-black text-gray-800 mb-2">-</h2>
+        <p id="led-description" class="text-base text-gray-600 mb-4"></p>
+        <p class="text-sm text-gray-400 mb-4"><i class="fa-solid fa-location-dot mr-1"></i><span id="led-location"></span></p>
+
+        <h3 class="text-lg font-black text-gray-800 mb-2">เลือกรอบเวลา</h3>
+        <div id="led-slots-list" class="space-y-2 mb-6"></div>
+      </div>
+      <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-gray-200 p-4 z-50">
+        <button id="btn-confirm-lib-booking" disabled class="w-full bg-gray-300 text-white py-4 rounded-2xl font-black text-lg">เลือกรอบเวลาก่อน</button>
+      </div>
+    </div>
+
+    <!-- รายละเอียดการจอง (QR) -->
+    <div id="lib-booking-detail-view" class="page-section bg-white min-h-screen pb-10 text-center">
+      <div class="theme-pink text-white p-4 flex items-center gap-3 sticky top-0 z-40">
+        <button id="btn-back-lib-booking-detail" class="w-11 h-11 bg-white/20 rounded-full flex items-center justify-center text-lg"><i class="fa-solid fa-arrow-left"></i></button>
+        <h2 class="text-xl font-bold">รายละเอียดการจอง</h2>
+      </div>
+      <div class="p-4">
+        <span id="lbd-status-badge" class="inline-block text-base font-bold px-3 py-1.5 rounded-full mb-4"></span>
+        <img id="lbd-image" src="" class="w-full h-40 object-cover rounded-2xl bg-gray-100 mb-4">
+        <h2 id="lbd-name" class="text-xl font-black text-gray-800 mb-1">-</h2>
+        <p id="lbd-datetime" class="text-base text-gray-500 mb-4"></p>
+        <img id="lbd-qr-img" src="" class="w-52 h-52 mx-auto mb-2">
+        <p id="lbd-code" class="text-lg font-black theme-text tracking-wider mb-6"></p>
+        <button id="btn-cancel-lib-booking" class="w-full bg-red-50 text-red-600 py-4 rounded-2xl font-black text-lg">ยกเลิกการจอง</button>
+      </div>
+    </div>
+
   </div>
   <script type="module" src="/src/main.js"></script>
 </body>
