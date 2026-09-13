@@ -76,7 +76,8 @@ function loadHomeData() {
   document.getElementById('lib-card-branch').innerText =
     `${currentUserData.libraryMember.branchName || '-'} · ${currentUserData.libraryMember.province || '-'}`;
 
-  checkLibrarianStatus(); // 🆕 เพิ่มบรรทัดนี้
+  checkLibrarianStatus();
+  loadHomeNewsAndBooks(); // 🆕 เพิ่มบรรทัดนี้
 }
 
 document.getElementById('btn-search-books').onclick = () => showToast('ค้นหาหนังสือ จะทำในเฟส 2', 'info');
@@ -89,7 +90,10 @@ document.getElementById('tab-space-booking').onclick = () => {
   showView('space-booking-view');
   loadSpaceBookingTab();
 };
-document.getElementById('tab-news').onclick = () => showToast('ข่าวสาร จะทำในเฟส 7', 'info');
+document.getElementById('tab-news').onclick = () => {
+  showView('news-feed-view');
+  loadNewsFeed('all');
+};
 
 // ================= ค้นหาหนังสือ =================
 
@@ -801,7 +805,12 @@ let currentSpaceBookingId = null;
 
 document.getElementById('space-btn-tab-home').onclick = () => showView('home-view');
 document.getElementById('space-btn-tab-space').onclick = () => showView('space-booking-view');
-document.getElementById('space-btn-tab-news').onclick = () => showToast('ข่าวสาร จะทำในเฟส 7', 'info');
+document.getElementById('space-btn-tab-news').onclick = () => {
+  showView('news-feed-view');
+  loadNewsFeed('all');
+};
+document.getElementById('news-btn-tab-home').onclick = () => showView('home-view');
+document.getElementById('news-btn-tab-space').onclick = () => { showView('space-booking-view'); loadSpaceBookingTab(); };
 
 function loadSpaceBookingTab() {
   currentSpaceTab = 'book';
@@ -983,3 +992,144 @@ document.getElementById('btn-cancel-space-booking').onclick = async () => {
     showToast('เกิดข้อผิดพลาด กรุณาลองใหม่', 'error');
   }
 };
+
+// ================= ประชาสัมพันธ์ =================
+
+let allLibraryNewsData = [];
+let currentNewsFilter = 'all';
+
+const newsTypeLabel = { news: 'ข่าวสาร', new_book: 'หนังสือใหม่', announcement: 'ประชาสัมพันธ์' };
+const newsTypeColor = {
+  news: 'bg-blue-50 text-blue-600',
+  new_book: 'bg-emerald-50 text-emerald-600',
+  announcement: 'bg-amber-50 text-amber-600'
+};
+
+async function fetchLibraryNews() {
+  const branchId = currentUserData.libraryMember.branchId;
+
+  // ดึงข่าวของสาขาตัวเอง + ข่าวที่เป็น "all" (ทุกสาขา) รวมกัน
+  const branchSnap = await getDocs(query(collection(db, 'libraryNews'), where('branchId', '==', branchId)));
+  const allBranchSnap = await getDocs(query(collection(db, 'libraryNews'), where('branchId', '==', 'all')));
+
+  const items = [];
+  branchSnap.forEach(d => items.push({ id: d.id, ...d.data() }));
+  allBranchSnap.forEach(d => items.push({ id: d.id, ...d.data() }));
+
+  return items.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+}
+
+async function loadNewsFeed(filter) {
+  currentNewsFilter = filter;
+  document.querySelectorAll('.news-filter-btn').forEach(b => {
+    b.className = 'news-filter-btn flex-1 py-3 text-base font-black whitespace-nowrap px-4 text-gray-400 border-b-2 border-transparent';
+  });
+  document.querySelector(`[data-news-filter="${filter}"]`).className =
+    'news-filter-btn flex-1 py-3 text-base font-black whitespace-nowrap px-4 theme-text border-b-2 border-pink-500';
+
+  const container = document.getElementById('news-feed-list');
+  container.innerHTML = '<p class="text-center text-gray-400 text-lg py-8">กำลังโหลด...</p>';
+
+  allLibraryNewsData = await fetchLibraryNews();
+  renderNewsFeedList();
+}
+
+document.querySelectorAll('.news-filter-btn').forEach(btn => {
+  btn.onclick = () => loadNewsFeed(btn.dataset.newsFilter);
+});
+
+function renderNewsFeedList() {
+  const filtered = currentNewsFilter === 'all'
+    ? allLibraryNewsData
+    : allLibraryNewsData.filter(n => n.type === currentNewsFilter);
+
+  const container = document.getElementById('news-feed-list');
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<p class="text-center text-gray-400 text-lg py-8">ยังไม่มีข่าวในหมวดนี้</p>';
+    return;
+  }
+
+  container.innerHTML = filtered.map(n => `
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden cursor-pointer flex gap-3 p-3" onclick="openNewsDetail('${n.id}')">
+      <img src="${n.image || ''}" class="w-20 h-20 object-cover rounded-xl bg-gray-100 shrink-0">
+      <div class="flex-1 min-w-0">
+        <span class="text-xs font-bold px-2 py-0.5 rounded-full ${newsTypeColor[n.type] || ''}">${newsTypeLabel[n.type] || n.type}</span>
+        <h4 class="font-black text-gray-800 mt-1 line-clamp-2">${n.title}</h4>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openNewsDetail(newsId) {
+  const n = allLibraryNewsData.find(x => x.id === newsId);
+  if (!n) return;
+
+  document.getElementById('nd-image').src = n.image || '';
+  document.getElementById('nd-type-badge').innerText = newsTypeLabel[n.type] || n.type;
+  document.getElementById('nd-type-badge').className = `inline-block text-sm font-bold px-3 py-1 rounded-full mb-3 ${newsTypeColor[n.type] || ''}`;
+  document.getElementById('nd-title').innerText = n.title;
+  document.getElementById('nd-content').innerText = n.content || '';
+
+  const createdAt = n.createdAt?.toDate ? n.createdAt.toDate() : new Date(n.createdAt);
+  document.getElementById('nd-date').innerText = createdAt.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  showView('news-detail-view');
+}
+window.openNewsDetail = openNewsDetail;
+
+document.getElementById('btn-back-news-detail').onclick = () => showView('news-feed-view');
+
+// ================= เชื่อมกับแถบประชาสัมพันธ์ + หนังสือเข้าใหม่ ในหน้าหลัก (เติมจากเฟส 1) =================
+
+async function loadHomeNewsAndBooks() {
+  const news = (await fetchLibraryNews()).slice(0, 8);
+  const newsScroll = document.getElementById('home-news-scroll');
+
+  if (news.length === 0) {
+    newsScroll.innerHTML = '<p class="text-gray-400 text-base py-4">ยังไม่มีประชาสัมพันธ์</p>';
+  } else {
+    newsScroll.innerHTML = news.map(n => `
+      <div class="min-w-[220px] w-[220px] bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden shrink-0 cursor-pointer" onclick="openHomeNewsDetail('${n.id}')">
+        <img src="${n.image || ''}" class="w-full h-28 object-cover bg-gray-100">
+        <div class="p-3">
+          <span class="text-xs font-bold px-2 py-0.5 rounded-full ${newsTypeColor[n.type] || ''}">${newsTypeLabel[n.type] || n.type}</span>
+          <h4 class="font-bold text-gray-800 text-sm mt-1 line-clamp-2">${n.title}</h4>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  const branchId = currentUserData.libraryMember.branchId;
+  const booksSnap = await getDocs(query(collection(db, 'libraryBooks'), where('branchId', '==', branchId)));
+  const books = [];
+  booksSnap.forEach(d => books.push({ id: d.id, ...d.data() }));
+  const newBooks = books.filter(isNewBook).slice(0, 8);
+
+  const booksScroll = document.getElementById('home-new-books-scroll');
+  if (newBooks.length === 0) {
+    booksScroll.innerHTML = '<p class="text-gray-400 text-base py-4">ยังไม่มีหนังสือเข้าใหม่</p>';
+  } else {
+    booksScroll.innerHTML = newBooks.map(b => `
+      <div class="min-w-[130px] w-[130px] bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden shrink-0 cursor-pointer" onclick="openHomeBookDetail('${b.id}')">
+        <img src="${b.coverImage || ''}" class="w-full h-40 object-cover bg-gray-100">
+        <div class="p-2">
+          <h4 class="font-bold text-gray-800 text-xs line-clamp-2">${b.title}</h4>
+        </div>
+      </div>
+    `).join('');
+  }
+}
+
+// เก็บ handler แยกไว้ เพราะตอนกดจากหน้าหลัก อาจยังไม่ได้โหลด allBooksData/allLibraryNewsData เต็ม (ต้องโหลดสดใหม่)
+async function openHomeNewsDetail(newsId) {
+  allLibraryNewsData = await fetchLibraryNews();
+  openNewsDetail(newsId);
+}
+window.openHomeNewsDetail = openHomeNewsDetail;
+
+async function openHomeBookDetail(bookId) {
+  await loadBooks();
+  openBookDetail(bookId);
+}
+window.openHomeBookDetail = openHomeBookDetail;
