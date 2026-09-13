@@ -3,58 +3,272 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Goodday - ระบบห้องสมุด</title>
+  <title>Goodday - ห้องสมุดสานพลัง</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.js"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
-    body { font-family: 'Sarabun', sans-serif; }
+    body { font-family: 'Sarabun', sans-serif; background-color: #F3F4F6; }
+    .theme-pink { background-color: #d81b60; }
+    .theme-text { color: #d81b60; }
+    .form-input {
+      width: 100%; border: 1px solid #D1D5DB; border-radius: 0.75rem; padding: 0.75rem;
+      font-size: 1.125rem; background-color: white; color: #374151; font-family: 'Sarabun';
+    }
+    .page-section { display: none !important; }
+    .page-section.active { display: block !important; }
+    .page-section.flex.active { display: flex !important; }
+    button, .cursor-pointer, [onclick] { transition: transform 0.15s ease; }
+    button:active:not(:disabled), .cursor-pointer:active, [onclick]:active { transform: scale(0.95); }
   </style>
 </head>
-<body class="antialiased">
-
-  <div class="max-w-md mx-auto min-h-screen bg-gradient-to-br from-purple-500 to-violet-600 flex flex-col items-center justify-center p-6 text-center relative overflow-hidden">
-
-    <div class="absolute top-10 left-6 text-white/10 text-8xl"><i class="fa-solid fa-book"></i></div>
-    <div class="absolute bottom-16 right-6 text-white/10 text-9xl"><i class="fa-solid fa-book-open-reader"></i></div>
-
-    <div class="relative z-10 flex flex-col items-center">
-      <div class="w-28 h-28 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center text-5xl text-white mb-6 shadow-lg">
-        <i class="fa-solid fa-screwdriver-wrench"></i>
-      </div>
-
-      <span class="bg-white/20 text-white text-sm font-black uppercase tracking-widest px-4 py-1.5 rounded-full mb-4 backdrop-blur-sm">
-        Coming Soon
-      </span>
-
-      <h2 class="text-3xl font-black text-white mb-3 leading-tight">ระบบห้องสมุด<br>กำลังปิดปรับปรุง</h2>
-
-      <p class="text-purple-100 text-lg leading-relaxed max-w-xs mb-8">
-        เรากำลังพัฒนาระบบห้องสมุดให้ใช้งานง่ายและดียิ่งขึ้น<br>ขออภัยในความไม่สะดวก 🙏
-      </p>
-
-      <button id="btn-close-liff" class="bg-white text-purple-600 px-8 py-4 rounded-2xl font-black text-lg shadow-lg">
-        ปิดหน้าต่างนี้
-      </button>
-    </div>
+<body class="antialiased text-gray-800">
+  <div id="toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 z-[10000] w-11/12 max-w-md flex flex-col gap-2"></div>
+  <div id="loading-overlay" class="fixed inset-0 bg-black/50 z-[9999] hidden flex-col items-center justify-center">
+    <div class="w-14 h-14 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
+    <p class="text-white font-bold text-lg mt-4" id="loading-text">กำลังประมวลผล...</p>
   </div>
 
-  <script>
-    const LIFF_ID = '2009970638-GrD1aOi9'; // 🔴 แก้ทีหลังตอนสมัคร LIFF เสร็จ
+  <div class="max-w-md mx-auto bg-white min-h-screen relative shadow-lg">
 
-    liff.init({ liffId: LIFF_ID }).then(() => {
-      document.getElementById('btn-close-liff').onclick = () => {
-        if (liff.isInClient()) {
-          liff.closeWindow(); // ปิดหน้าต่างกลับไป LINE เลย (ถ้าเปิดจากในแอป LINE)
-        } else {
-          window.close();
-        }
-      };
-    }).catch(() => {
-      // เปิดนอกแอป LINE ก็ยังใช้งานได้ปกติ แค่ปุ่มปิดจะไม่มีผล
-      document.getElementById('btn-close-liff').onclick = () => window.close();
-    });
-  </script>
+    <div id="loading-view" class="page-section active flex items-center justify-center min-h-screen">
+      <div class="text-center">
+        <div class="w-12 h-12 border-4 border-purple-100 border-t-purple-600 rounded-full animate-spin mx-auto mb-4"></div>
+        <p class="text-gray-400 text-lg font-bold">กำลังเข้าสู่ระบบ...</p>
+      </div>
+    </div>
+
+    <!-- ยังไม่ได้สมัครสมาชิกโครงการ -->
+    <div id="not-member-view" class="page-section p-6 pt-16 text-center">
+      <div class="w-24 h-24 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center text-5xl mx-auto mb-6">
+        <i class="fa-solid fa-user-lock"></i>
+      </div>
+      <h2 class="text-2xl font-black text-gray-800 mb-2">ยังไม่ได้สมัครสมาชิก</h2>
+      <p class="text-gray-500 text-lg mb-6">กรุณาสมัครสมาชิก Goodday ก่อน<br>จึงจะใช้งานระบบห้องสมุดได้</p>
+    </div>
+
+    <!-- สมาชิกโครงการแล้ว แต่ยังไม่ได้สมัครห้องสมุด -->
+    <div id="not-library-member-view" class="page-section p-6 pt-16 text-center">
+      <div class="w-24 h-24 bg-purple-50 text-purple-500 rounded-full flex items-center justify-center text-5xl mx-auto mb-6">
+        <i class="fa-solid fa-book-open-reader"></i>
+      </div>
+      <h2 class="text-2xl font-black text-gray-800 mb-2">ยังไม่ได้สมัครสมาชิกห้องสมุด</h2>
+      <p class="text-gray-500 text-lg mb-6">กรุณาสมัครสมาชิกห้องสมุดและเลือกสาขา<br>ผ่านระบบสมาชิก Goodday ก่อนใช้งาน</p>
+      <button id="btn-go-member-system" class="w-full bg-purple-600 text-white py-4 rounded-2xl font-black text-lg">ไปสมัครสมาชิกห้องสมุด</button>
+    </div>
+
+    <!-- หน้าหลัก -->
+    <div id="home-view" class="page-section bg-gray-50 min-h-screen pb-24">
+      <div class="bg-gradient-to-br from-purple-500 to-violet-600 p-4 pb-6">
+        <h2 class="text-xl font-black text-white mb-4"><i class="fa-solid fa-book-open-reader mr-2"></i>ห้องสมุดสานพลัง</h2>
+
+        <!-- บัตรสมาชิก -->
+        <div class="bg-white/95 backdrop-blur rounded-2xl p-5 shadow-lg relative overflow-hidden">
+          <div class="absolute -right-2 top-2 opacity-10 text-7xl text-purple-500">
+            <i class="fa-solid fa-book-open-reader"></i>
+          </div>
+          <span class="inline-block bg-purple-100 text-purple-600 text-xs font-black uppercase tracking-widest px-3 py-1 rounded-full mb-3">Library Member</span>
+          <p class="text-gray-400 text-sm mb-0.5">รหัสสมาชิกห้องสมุด</p>
+          <h2 id="lib-card-id" class="text-2xl font-black text-purple-600 tracking-wider mb-2">LIB-XXXXX</h2>
+          <div class="flex justify-between items-end">
+            <div>
+              <p id="lib-card-name" class="font-bold text-gray-800">-</p>
+              <p id="lib-card-branch" class="text-sm text-gray-400">-</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- บาร์ 6 ปุ่มกลม -->
+      <div class="grid grid-cols-3 gap-3 px-4 -mt-3 relative z-10 mb-4">
+        <div id="btn-search-books" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 flex flex-col items-center cursor-pointer">
+          <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center text-xl mb-1"><i class="fa-solid fa-magnifying-glass"></i></div>
+          <p class="text-xs font-bold text-gray-600 text-center">ค้นหาหนังสือ</p>
+        </div>
+        <div id="btn-my-books" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 flex flex-col items-center cursor-pointer">
+          <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center text-xl mb-1"><i class="fa-solid fa-book"></i></div>
+          <p class="text-xs font-bold text-gray-600 text-center">หนังสือของฉัน</p>
+        </div>
+        <div id="btn-lib-activities" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 flex flex-col items-center cursor-pointer">
+          <div class="w-12 h-12 bg-pink-50 text-pink-600 rounded-full flex items-center justify-center text-xl mb-1"><i class="fa-solid fa-calendar-days"></i></div>
+          <p class="text-xs font-bold text-gray-600 text-center">กิจกรรม</p>
+        </div>
+        <div id="btn-suggest-book" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 flex flex-col items-center cursor-pointer">
+          <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-xl mb-1"><i class="fa-solid fa-lightbulb"></i></div>
+          <p class="text-xs font-bold text-gray-600 text-center">เสนอแนะหนังสือ</p>
+        </div>
+        <div id="btn-creative-community" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 flex flex-col items-center cursor-pointer">
+          <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center text-xl mb-1"><i class="fa-solid fa-map-location-dot"></i></div>
+          <p class="text-xs font-bold text-gray-600 text-center">ชุมชนสร้างสรรค์</p>
+        </div>
+        <div id="btn-lib-calendar" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 flex flex-col items-center cursor-pointer">
+          <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center text-xl mb-1"><i class="fa-solid fa-calendar-check"></i></div>
+          <p class="text-xs font-bold text-gray-600 text-center">ปฏิทินกิจกรรม</p>
+        </div>
+      </div>
+
+      <div class="p-4">
+        <!-- ประชาสัมพันธ์ (เลื่อนแนวนอน) -->
+        <h3 class="text-lg font-black text-gray-800 mb-3">ประชาสัมพันธ์</h3>
+        <div id="home-news-scroll" class="flex overflow-x-auto gap-3 pb-2 -mx-4 px-4 mb-6"></div>
+
+        <!-- หนังสือเข้าใหม่ -->
+        <h3 class="text-lg font-black text-gray-800 mb-3">หนังสือเข้าใหม่</h3>
+        <div id="home-new-books-scroll" class="flex overflow-x-auto gap-3 pb-2 -mx-4 px-4"></div>
+      </div>
+
+      <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-gray-200 flex z-50">
+        <button id="tab-home" class="flex-1 py-3 flex flex-col items-center gap-1 theme-text">
+          <i class="fa-solid fa-house text-xl"></i><span class="text-sm font-bold">หน้าหลัก</span>
+        </button>
+        <button id="tab-space-booking" class="flex-1 py-3 flex flex-col items-center gap-1 text-gray-400">
+          <i class="fa-solid fa-door-open text-xl"></i><span class="text-sm font-bold">จองพื้นที่</span>
+        </button>
+        <button id="tab-news" class="flex-1 py-3 flex flex-col items-center gap-1 text-gray-400">
+          <i class="fa-solid fa-newspaper text-xl"></i><span class="text-sm font-bold">ข่าวสาร</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ค้นหาหนังสือ -->
+    <div id="book-search-view" class="page-section bg-gray-50 min-h-screen pb-10">
+        <div class="bg-gradient-to-br from-purple-500 to-violet-600 p-4">
+          <div class="flex items-center gap-3 mb-3">
+            <button id="btn-back-book-search" class="w-11 h-11 bg-white/20 rounded-full text-white flex items-center justify-center text-lg"><i class="fa-solid fa-arrow-left"></i></button>
+            <h2 class="text-xl font-black text-white">ค้นหาหนังสือ</h2>
+          </div>
+          <div class="relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+            <input id="book-search-input" type="text" class="form-input pl-11" placeholder="ค้นหาชื่อหนังสือ หรือรหัสหนังสือ...">
+          </div>
+        </div>
+
+        <!-- แท็บ: ทั้งหมด / ถูกใจ -->
+        <div class="flex bg-white border-b border-gray-200 sticky top-0 z-30">
+          <button id="book-tab-all" class="flex-1 py-3 text-lg font-black theme-text border-b-2 border-pink-500">ทั้งหมด</button>
+          <button id="book-tab-liked" class="flex-1 py-3 text-lg font-black text-gray-400 border-b-2 border-transparent">ถูกใจ</button>
+        </div>
+
+        <div class="p-4">
+          <!-- หมวดหมู่ (เลื่อนแนวนอน) -->
+          <div id="book-category-scroll" class="flex overflow-x-auto gap-2 pb-2 -mx-4 px-4 mb-3"></div>
+
+          <!-- ตัวกรองหนังสือใหม่ -->
+          <label class="flex items-center gap-2 mb-4 cursor-pointer">
+            <input type="checkbox" id="book-filter-new" class="w-5 h-5">
+            <span class="text-base font-bold text-gray-600">แสดงเฉพาะหนังสือเข้าใหม่</span>
+          </label>
+
+          <div id="book-grid" class="grid grid-cols-2 gap-3"></div>
+        </div>
+      </div>
+
+      <!-- รายละเอียดหนังสือ -->
+      <div id="book-detail-view" class="page-section bg-white min-h-screen pb-24">
+        <div class="theme-pink text-white p-4 flex items-center gap-3 sticky top-0 z-40">
+          <button id="btn-back-book-detail" class="w-11 h-11 bg-white/20 rounded-full flex items-center justify-center text-lg"><i class="fa-solid fa-arrow-left"></i></button>
+          <h2 class="text-xl font-bold">รายละเอียดหนังสือ</h2>
+        </div>
+
+        <div class="p-4 flex gap-4">
+          <img id="bd-cover" src="" class="w-32 h-44 object-cover rounded-xl shadow-md bg-gray-100 shrink-0">
+          <div class="flex-1">
+            <span id="bd-category" class="inline-block bg-purple-50 text-purple-600 text-sm font-bold px-2.5 py-1 rounded-full mb-2"></span>
+            <h2 id="bd-title" class="text-xl font-black text-gray-800 mb-1">-</h2>
+            <p id="bd-author" class="text-base text-gray-500 mb-2"></p>
+            <p class="text-sm text-gray-400">รหัสหนังสือ: <span id="bd-code" class="font-bold text-gray-600"></span></p>
+            <p class="text-sm text-gray-400 mt-1">คงเหลือ: <span id="bd-available" class="font-bold text-emerald-600"></span> เล่ม</p>
+          </div>
+        </div>
+
+        <div class="px-4">
+          <h3 class="text-lg font-black text-gray-800 mb-2">เรื่องย่อ</h3>
+          <p id="bd-description" class="text-base text-gray-600 leading-relaxed mb-6"></p>
+        </div>
+
+        <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-gray-200 p-3 flex gap-3 z-50">
+          <button id="btn-like-book" class="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center text-2xl text-gray-400 shrink-0">
+            <i class="fa-regular fa-heart"></i>
+          </button>
+          <button id="btn-borrow-book" class="flex-1 theme-pink text-white py-4 rounded-2xl font-black text-lg">ยืมหนังสือ</button>
+        </div>
+      </div>
+
+    <!-- ป็อปอัพกฎการยืม + เลือกวันคืน -->
+    <div id="borrow-modal" class="fixed inset-0 bg-black/60 z-[9998] hidden flex-col items-center justify-center p-4">
+      <div class="bg-white rounded-2xl p-6 w-full max-w-sm">
+        <h3 class="text-lg font-black text-gray-800 mb-3"><i class="fa-solid fa-circle-info text-amber-500 mr-1"></i>กฎการยืมหนังสือ</h3>
+        <ul class="text-sm text-gray-600 space-y-1.5 mb-4 list-disc pl-5">
+          <li>ยืมได้สูงสุด 2 เดือนนับจากวันนี้</li>
+          <li>กรุณามารับหนังสือที่สาขาภายใน 3 วัน มิเช่นนั้นรายการจะถูกยกเลิก</li>
+          <li>ต้องแสดง QR Code ให้บรรณารักษ์สแกนตอนรับหนังสือ</li>
+          <li>กรุณาคืนหนังสือตามกำหนด หากเกินกำหนดอาจมีผลต่อสิทธิ์การยืมครั้งถัดไป</li>
+        </ul>
+        <label class="text-sm font-bold text-gray-500 block mb-1">เลือกวันที่จะคืน (ไม่เกิน 2 เดือน)</label>
+        <input type="date" id="borrow-due-date" class="form-input mb-4">
+        <div class="flex gap-2">
+          <button id="btn-confirm-borrow" class="flex-1 theme-pink text-white py-3 rounded-xl font-black">ยืนยันการยืม</button>
+          <button id="btn-close-borrow-modal" class="bg-gray-100 text-gray-600 px-4 py-3 rounded-xl font-bold">ยกเลิก</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- หนังสือของฉัน -->
+    <div id="my-books-view" class="page-section bg-gray-50 min-h-screen pb-10">
+      <div class="theme-pink text-white p-4 flex items-center gap-3 sticky top-0 z-40">
+        <button id="btn-back-my-books" class="w-11 h-11 bg-white/20 rounded-full flex items-center justify-center text-lg"><i class="fa-solid fa-arrow-left"></i></button>
+        <h2 class="text-xl font-bold">หนังสือของฉัน</h2>
+      </div>
+      <div class="p-4">
+        <div id="my-books-list" class="space-y-3"></div>
+      </div>
+    </div>
+
+    <!-- รายละเอียดรายการยืม (QR Code) -->
+    <div id="borrow-detail-view" class="page-section bg-white min-h-screen pb-10">
+      <div class="theme-pink text-white p-4 flex items-center gap-3 sticky top-0 z-40">
+        <button id="btn-back-borrow-detail" class="w-11 h-11 bg-white/20 rounded-full flex items-center justify-center text-lg"><i class="fa-solid fa-arrow-left"></i></button>
+        <h2 class="text-xl font-bold">รายละเอียดการยืม</h2>
+      </div>
+      <div class="p-4 text-center">
+        <span id="bod-status-badge" class="inline-block text-base font-bold px-3 py-1.5 rounded-full mb-4"></span>
+        <img id="bod-cover" src="" class="w-32 h-44 object-cover rounded-xl shadow-md bg-gray-100 mx-auto mb-3">
+        <h2 id="bod-title" class="text-xl font-black text-gray-800 mb-1">-</h2>
+        <p id="bod-borrower" class="text-base text-gray-500 mb-4"></p>
+
+        <div class="bg-gray-50 rounded-2xl p-4 mb-4 text-left">
+          <p class="text-sm text-gray-400">วันที่ทำรายการ</p>
+          <p id="bod-requested" class="font-bold text-gray-800 mb-2">-</p>
+          <p class="text-sm text-gray-400">กำหนดคืน</p>
+          <p id="bod-due" class="font-bold text-rose-600">-</p>
+        </div>
+
+        <div id="bod-qr-section">
+          <p class="text-base font-bold text-gray-700 mb-3">แสดง QR Code นี้ให้บรรณารักษ์สแกน</p>
+          <img id="bod-qr-img" src="" class="w-52 h-52 mx-auto">
+        </div>
+      </div>
+    </div>
+
+    <!-- สแกนยืนยันการยืม (เฉพาะบรรณารักษ์) -->
+    <div id="librarian-scan-view" class="page-section bg-gray-900 min-h-screen">
+      <div class="p-4 flex items-center gap-3">
+        <button id="btn-back-librarian-scan" class="w-11 h-11 bg-white/20 rounded-full text-white flex items-center justify-center text-lg"><i class="fa-solid fa-arrow-left"></i></button>
+        <h2 class="text-xl font-bold text-white">สแกนยืนยันการยืม</h2>
+      </div>
+      <div class="relative">
+        <video id="scan-video" class="w-full" autoplay playsinline></video>
+        <canvas id="scan-canvas" class="hidden"></canvas>
+        <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div class="w-56 h-56 border-4 border-white/70 rounded-2xl"></div>
+        </div>
+      </div>
+      <p id="scan-status-text" class="text-center text-white text-lg font-bold mt-4">กำลังเปิดกล้อง...</p>
+    </div>
+
+  </div>
+  <script type="module" src="/src/main.js"></script>
 </body>
 </html>
