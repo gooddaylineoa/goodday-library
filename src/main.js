@@ -486,14 +486,7 @@ let myLibBookings = [];
 let currentLibEventTab = 'upcoming';
 let selectedLibSlotId = null;
 
-document.getElementById('btn-lib-activities').onclick = () => {
-  showView('lib-events-view');
-  loadLibEvents();
-};
-document.getElementById('btn-lib-calendar').onclick = () => {
-  showView('lib-events-view');
-  loadLibEvents();
-};
+document.getElementById('btn-lib-activities').onclick = () => { showView('lib-events-view'); loadLibEvents(); };
 document.getElementById('btn-back-lib-events').onclick = () => showView('home-view');
 
 async function loadLibEvents() {
@@ -1133,3 +1126,130 @@ async function openHomeBookDetail(bookId) {
   openBookDetail(bookId);
 }
 window.openHomeBookDetail = openHomeBookDetail;
+
+// ================= ปฏิทินกิจกรรม =================
+
+let calCurrentDate = new Date();
+let calSelectedDateStr = null;
+
+document.getElementById('btn-lib-calendar').onclick = () => {
+  showView('lib-calendar-view');
+  calCurrentDate = new Date();
+  calSelectedDateStr = null;
+  loadCalendarEvents();
+};
+document.getElementById('btn-back-lib-calendar').onclick = () => showView('home-view');
+
+async function loadCalendarEvents() {
+  if (allLibEventsData.length === 0) {
+    const branchId = currentUserData.libraryMember.branchId;
+    const q = query(collection(db, 'libraryEvents'), where('branchId', '==', branchId));
+    const snap = await getDocs(q);
+    allLibEventsData = [];
+    snap.forEach(d => allLibEventsData.push({ id: d.id, ...d.data() }));
+  }
+  renderCalendarGrid();
+}
+
+const thaiMonthNames = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+
+function getEventDatesSet() {
+  const dates = new Set();
+  allLibEventsData.forEach(e => {
+    (e.slots || []).forEach(s => dates.add(s.date));
+  });
+  return dates;
+}
+
+function renderCalendarGrid() {
+  const year = calCurrentDate.getFullYear();
+  const month = calCurrentDate.getMonth();
+
+  document.getElementById('cal-month-label').innerText = `${thaiMonthNames[month]} ${year + 543}`;
+
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const startWeekday = firstDay.getDay();
+  const daysInMonth = lastDay.getDate();
+  const eventDates = getEventDatesSet();
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  let cells = [];
+  for (let i = 0; i < startWeekday; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  document.getElementById('cal-grid').innerHTML = cells.map(d => {
+    if (!d) return `<div></div>`;
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const hasEvent = eventDates.has(dateStr);
+    const isToday = dateStr === todayStr;
+    const isSelected = dateStr === calSelectedDateStr;
+
+    return `
+      <button data-date="${dateStr}" class="cal-day-btn aspect-square rounded-xl flex flex-col items-center justify-center relative
+        ${isSelected ? 'theme-pink text-white' : isToday ? 'bg-pink-50 theme-text font-bold' : 'bg-white text-gray-700'}">
+        <span class="text-sm">${d}</span>
+        ${hasEvent ? `<span class="w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-white' : 'bg-pink-500'} absolute bottom-1.5"></span>` : ''}
+      </button>`;
+  }).join('');
+
+  document.querySelectorAll('.cal-day-btn').forEach(btn => {
+    btn.onclick = () => {
+      calSelectedDateStr = btn.dataset.date;
+      renderCalendarGrid();
+      renderCalendarDayEvents();
+    };
+  });
+
+  if (calSelectedDateStr) renderCalendarDayEvents();
+}
+
+document.getElementById('cal-prev-month').onclick = () => {
+  calCurrentDate.setMonth(calCurrentDate.getMonth() - 1);
+  calSelectedDateStr = null;
+  renderCalendarGrid();
+  document.getElementById('cal-day-events-list').innerHTML = '';
+  document.getElementById('cal-day-events').querySelector('h3').innerText = 'เลือกวันที่เพื่อดูกิจกรรม';
+};
+document.getElementById('cal-next-month').onclick = () => {
+  calCurrentDate.setMonth(calCurrentDate.getMonth() + 1);
+  calSelectedDateStr = null;
+  renderCalendarGrid();
+  document.getElementById('cal-day-events-list').innerHTML = '';
+  document.getElementById('cal-day-events').querySelector('h3').innerText = 'เลือกวันที่เพื่อดูกิจกรรม';
+};
+
+function renderCalendarDayEvents() {
+  const [y, m, d] = calSelectedDateStr.split('-').map(Number);
+  document.getElementById('cal-day-events').querySelector('h3').innerText =
+    `กิจกรรมวันที่ ${d} ${thaiMonthNames[m - 1]} ${y + 543}`;
+
+  const eventsOnDay = [];
+  allLibEventsData.forEach(e => {
+    (e.slots || []).forEach(s => {
+      if (s.date === calSelectedDateStr) eventsOnDay.push({ event: e, slot: s });
+    });
+  });
+
+  const container = document.getElementById('cal-day-events-list');
+  if (eventsOnDay.length === 0) {
+    container.innerHTML = '<p class="text-center text-gray-400 py-6">ไม่มีกิจกรรมในวันนี้</p>';
+    return;
+  }
+
+  container.innerHTML = eventsOnDay.map(({ event, slot }) => `
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex gap-3 cursor-pointer" onclick="openLibEventDetailFromCalendar('${event.id}')">
+      <img src="${event.image || ''}" class="w-16 h-16 rounded-xl object-cover bg-gray-100 shrink-0">
+      <div class="flex-1">
+        <h4 class="font-black text-gray-800">${event.name}</h4>
+        <p class="text-sm text-gray-400">${slot.startTime}-${slot.endTime} · เหลือ ${Math.max(slot.totalSeats - (slot.bookedSeats || 0), 0)} ที่</p>
+      </div>
+      <i class="fa-solid fa-chevron-right text-gray-300 self-center"></i>
+    </div>
+  `).join('');
+}
+
+function openLibEventDetailFromCalendar(eventId) {
+  openLibEventDetail(eventId);
+}
+window.openLibEventDetailFromCalendar = openLibEventDetailFromCalendar;
