@@ -39,36 +39,44 @@ document.getElementById('btn-go-member-system').onclick = () => {
   window.location.href = 'https://goodday-member-system.vercel.app';
 };
 
-onAuthStateChanged(auth, async (user) => {
-  if (user) {
-    currentUid = user.uid;
-    const snap = await getDoc(doc(db, 'users', currentUid));
-    const data = snap.exists() ? snap.data() : null;
+// 🚧 ระบบห้องสมุดปิดปรับปรุงชั่วคราว (ยังไม่พร้อมเปิดใช้งานจริง)
+// เมื่อพร้อมเปิดใช้งานจริง ให้เปลี่ยนค่านี้เป็น false เท่านั้น โค้ดทั้งหมดด้านล่างจะกลับมาทำงานทันที
+const LIBRARY_COMING_SOON = true;
 
-    if (!data || !data.profileComplete) {
-      showView('not-member-view');
-      return;
-    }
+if (LIBRARY_COMING_SOON) {
+  showView('coming-soon-view');
+} else {
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      currentUid = user.uid;
+      const snap = await getDoc(doc(db, 'users', currentUid));
+      const data = snap.exists() ? snap.data() : null;
 
-    // ต้องเป็นสมาชิกห้องสมุด (มี libraryMember.joined = true) และเลือกสาขาแล้ว
-    if (!data.libraryMember || !data.libraryMember.joined || !data.libraryMember.branchId) {
-      showView('not-library-member-view');
-      return;
-    }
+      if (!data || !data.profileComplete) {
+        showView('not-member-view');
+        return;
+      }
 
-    currentUserData = data;
-    showView('home-view');
-    loadHomeData();
-  } else {
-    currentUid = null;
-    try {
-      await initLineAuth();
-    } catch (err) {
-      console.error('Auto LINE login failed:', err);
-      showToast('เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่', 'error');
+      // ต้องเป็นสมาชิกห้องสมุด (มี libraryMember.joined = true) และเลือกสาขาแล้ว
+      if (!data.libraryMember || !data.libraryMember.joined || !data.libraryMember.branchId) {
+        showView('not-library-member-view');
+        return;
+      }
+
+      currentUserData = data;
+      showView('home-view');
+      loadHomeData();
+    } else {
+      currentUid = null;
+      try {
+        await initLineAuth();
+      } catch (err) {
+        console.error('Auto LINE login failed:', err);
+        showToast('เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่', 'error');
+      }
     }
-  }
-});
+  });
+}
 
 function loadHomeData() {
   document.getElementById('lib-card-id').innerText = currentUserData.libraryMember.cardId || '-';
